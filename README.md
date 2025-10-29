@@ -90,10 +90,10 @@ docker compose ps
 
 ```bash
 # Simple workflow demonstration
-python3 demo_workflow_simple.py
+python3 examples/demo_workflow_simple.py
 
 # Visual architecture viewer
-python3 show_architecture.py
+python3 examples/show_architecture.py
 ```
 
 ### 4. Build & Flash Example Project
@@ -248,10 +248,10 @@ asyncio.run(main())
 
 ```bash
 # First build (no cache)
-./test_flash_cached.sh
+./scripts/test_flash_cached.sh
 
 # Second build (with cache) - should be ~2-3 min faster
-./test_flash_cached.sh
+./scripts/test_flash_cached.sh
 ```
 
 ---
@@ -324,6 +324,13 @@ esp32-multi-agent/
 ├── workspace/                  # ESP-IDF project
 │   ├── main/main.c
 │   └── CMakeLists.txt
+├── examples/                   # Demo scripts
+│   ├── demo_workflow_simple.py
+│   └── show_architecture.py
+├── scripts/                    # Test & utility scripts
+│   ├── test_flash_cached.sh
+│   ├── test_multi_agent_system.sh
+│   └── verify_phase1.sh
 ├── docs/                       # Technical documentation
 │   ├── ARCHITECTURE.md
 │   ├── MULTI_AGENT_SYSTEM.md
@@ -364,10 +371,10 @@ async def _custom_action(self) -> Dict[str, Any]:
 
 ```bash
 # Validate system
-./verify_phase1.sh
+./scripts/verify_phase1.sh
 
 # Full test suite
-./test_multi_agent_system.sh
+./scripts/test_multi_agent_system.sh
 
 # Test specific component
 docker compose exec mcp-server pytest tests/test_orchestrator.py
@@ -394,13 +401,13 @@ docker compose exec mcp-server pytest tests/test_orchestrator.py
 
 ```bash
 # View architecture
-python3 show_architecture.py
+python3 examples/show_architecture.py
 
 # Workflow demonstration
-python3 demo_workflow_simple.py
+python3 examples/demo_workflow_simple.py
 
 # Check system status
-./verify_phase1.sh
+./scripts/verify_phase1.sh
 ```
 
 ---
@@ -432,10 +439,10 @@ git checkout -b feature/amazing-feature
 
 ```bash
 # Run test suite
-./test_multi_agent_system.sh
+./scripts/test_multi_agent_system.sh
 
 # Verify no regressions
-./verify_phase1.sh
+./scripts/verify_phase1.sh
 ```
 
 ### 5. Submit Pull Request
