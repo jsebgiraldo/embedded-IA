@@ -1,0 +1,49 @@
+services:
+  # Main development container with ESP-IDF
+  dev:
+    image: espressif/idf:latest
+    container_name: esp32-idf-dev
+    working_dir: /workspace
+    environment:
+      # Variables for idf.py and target (adjust to your chip: esp32, esp32s3, esp32c6, etc.)
+      - IDF_CCACHE_ENABLE=1
+      - IDF_PYTHON_CHECK_CONSTRAINTS=no
+      - ESP_IDF_TARGET=${ESP_IDF_TARGET:-esp32}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./workspace:/workspace
+      - ./agent/app:/agent
+      - ./mcp-server:/mcp-server
+      # Optional pip cache
+      - pip-cache:/root/.cache/pip
+    # Serial port access (Linux)
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0
+      - /dev/ttyACM0:/dev/ttyACM0
+    # For macOS use "privileged: true" and share the device accordingly
+    privileged: true
+    tty: true
+    stdin_open: true
+    command: bash -lc "python3 -m pip install --upgrade pip && pip install langchain langchain-community openai rich mcp psutil && tail -f /dev/null"
+
+  # MCP Server - Separates tool logic from agent
+  mcp-server:
+    image: espressif/idf:latest
+    container_name: esp32-mcp-server
+    working_dir: /workspace
+    environment:
+      - ESP_IDF_TARGET=${ESP_IDF_TARGET:-esp32}
+    volumes:
+      - ./workspace:/workspace
+      - ./mcp-server:/mcp-server
+      - pip-cache:/root/.cache/pip
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0
+      - /dev/ttyACM0:/dev/ttyACM0
+    privileged: true
+    tty: true
+    stdin_open: true
+    command: bash -lc "python3 -m pip install --upgrade pip && pip install langchain langchain-community && cd /mcp-server && pip install -e . && echo '✅ MCP Server ready' && tail -f /dev/null"
+
+volumes:
+  pip-cache:

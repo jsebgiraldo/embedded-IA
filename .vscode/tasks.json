@@ -1,0 +1,33 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "IDF: Set Target",
+      "type": "shell",
+      "command": "idf.py set-target ${env:ESP_IDF_TARGET}",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "IDF: Build",
+      "type": "shell",
+      "command": "idf.py build",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": "$gcc"
+    },
+    {
+      "label": "IDF: Flash",
+      "type": "shell",
+      "command": "idf.py -p /dev/ttyUSB0 flash",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "IDF: Monitor",
+      "type": "shell",
+      "command": "idf.py -p /dev/ttyUSB0 monitor",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    }
+  ]
+}

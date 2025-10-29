@@ -1,0 +1,25 @@
+{
+  "name": "ESP32 + IDF + Agent",
+  "dockerComposeFile": ["../docker-compose.yml"],
+  "service": "dev",
+  "workspaceFolder": "/workspace",
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/common-utils:2": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "espressif.esp-idf-extension",
+        "ms-python.python",
+        "github.copilot",
+        "github.copilot-chat",
+        "ms-azuretools.vscode-docker",
+        "eamodio.gitlens"
+      ]
+    }
+  },
+  "remoteUser": "root",
+  "postStartCommand": "bash -lc 'python3 -m pip install --upgrade pip && pip install langchain langchain-community openai rich || true'"
+}

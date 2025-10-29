@@ -1,0 +1,9 @@
+{
+  "editor.formatOnSave": true,
+  "C_Cpp.intelliSenseEngine": "default",
+  "idf.espIdfPath": "/opt/esp/idf",
+  "idf.pythonBinPath": "/usr/bin/python3",
+  "idf.customExtraPaths": "/root/.espressif/tools",
+  "idf.adapterTargetName": "${env:ESP_IDF_TARGET}",
+  "terminal.integrated.defaultProfile.linux": "bash"
+}

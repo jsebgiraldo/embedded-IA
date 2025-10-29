@@ -1,0 +1,24 @@
+{
+  "timestamp": "2025-10-29T04:31:11.789581",
+  "target": "esp32-c6",
+  "project_name": "my_app",
+  "build_status": "success",
+  "artifacts": {
+    "bootloader": "/workspace/build/bootloader/bootloader.bin",
+    "partition_table": "/workspace/build/partition_table/partition-table.bin",
+    "app_bin": "/workspace/build/my_app.bin",
+    "app_elf": "/workspace/build/my_app.elf"
+  },
+  "checksums": {
+    "bootloader": "572f6487c63aa8c0cfabaf0b88b4442d915c4e681177cb826c7f2b037aea4559",
+    "partition_table": "7f00b6c042a89b15b0cac534f82ed988caf29278ff5700b0c511eb1b5bb7c820",
+    "app_bin": "f758ab134789fb90fbd3fe4f8af651bb10625a1b58f84dcd7a77845b266989f6",
+    "app_elf": "5e457b9b61ec2645da660fc4d52ad451add1434ae9d8ecad4c17b47b442233c8"
+  },
+  "memory_usage": {
+    "binary_size_bytes": 153072,
+    "binary_size_hex": "0x255f0",
+    "flash_free_percent": 8
+  },
+  "build_path": "/workspace/build"
+}
