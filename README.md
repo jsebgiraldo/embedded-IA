@@ -525,19 +525,50 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Issues**: [GitHub Issues](https://github.com/yourusername/esp32-multi-agent/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/esp32-multi-agent/discussions)
-- **Email**: your.email@example.com
+- **Email**: jsgiraldod@hotmail.com
 
 ---
 
 ## 🗺️ Roadmap
 
-### Phase 2 (Planned)
+### Phase 2 (In Development) 🚀
 
-- [ ] **LLM Integration** - GPT-4/Claude for Developer agent (2-3 weeks)
+- [x] **LLM Integration** - Local models via Ollama + cloud APIs ⭐ NEW!
 - [ ] **GitHub Import** - Automated repo cloning and validation (1 week)
 - [ ] **Web Dashboard** - React + FastAPI real-time UI (3-4 weeks)
 - [ ] **REST API** - Remote workflow control (2 weeks)
 - [ ] **Metrics DB** - PostgreSQL/InfluxDB for analytics (2 weeks)
+
+#### 🧠 Local LLM Support (NEW!)
+
+Run powerful AI models locally without cloud dependencies:
+
+```bash
+# Quick setup (macOS/Linux)
+./scripts/setup_local_llm.sh
+
+# Choose your model tier
+./scripts/setup_local_llm.sh best         # DeepSeek 16B (20GB RAM)
+./scripts/setup_local_llm.sh balanced     # Qwen2.5 14B (18GB RAM) ⭐
+./scripts/setup_local_llm.sh lightweight  # CodeLlama 7B (8GB RAM)
+```
+
+**Supported Models**:
+- 🔥 **DeepSeek-Coder-V2 16B** - Best quality for complex debugging
+- ⭐ **Qwen2.5-Coder 14B** - Excellent for ESP32/embedded (recommended)
+- ⚡ **CodeLlama 13B** - Fast and efficient
+- 🪶 **CodeLlama 7B** - Lightweight, works on 8GB RAM
+
+**Test It**:
+```bash
+# Test LLM integration
+python3 agent/llm_provider.py
+
+# Test Developer Agent with real code fixing
+python3 examples/test_developer_agent.py
+```
+
+**Documentation**: [Local LLM Setup Guide](docs/LOCAL_LLM_SETUP.md)
 
 ### Future Enhancements
 
@@ -554,6 +585,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Made with ❤️ for the ESP32 community**
 
-[⭐ Star this repo](https://github.com/yourusername/esp32-multi-agent) • [📖 Read the docs](docs/) • [🐛 Report bug](issues) • [💡 Request feature](issues)
+[⭐ Star this repo](https://github.com/jsebgiraldo/embedded-IA) • [📖 Read the docs](docs/) • [🐛 Report bug](https://github.com/jsebgiraldo/embedded-IA/issues) • [💡 Request feature](https://github.com/jsebgiraldo/embedded-IA/issues)
 
 </div>
