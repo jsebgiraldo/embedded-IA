@@ -83,6 +83,18 @@ test-results/
 serial-*.log
 workflow-*.tmp
 
+# Workspace: ignore build outputs and temp files, keep template
+workspace/build/
+workspace/sdkconfig
+workspace/sdkconfig.old
+workspace/.artifacts_cache/*
+workspace/.qemu_output.log
+workspace/.test_*.txt
+
+# But keep the cache directory structure and metadata template
+!workspace/.artifacts_cache/
+!workspace/.artifacts_cache/.gitkeep
+
 # ============================================================================
 # KEEP THESE
 # ============================================================================
