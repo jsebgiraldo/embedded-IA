@@ -1,0 +1,61 @@
+{
+  "total_duration": 218.41021180152893,
+  "total_tests": 7,
+  "passed": 5,
+  "failed": 2,
+  "success_rate": 71.42857142857143,
+  "avg_test_duration": 30.19632543836321,
+  "total_tokens": 620,
+  "tokens_per_second": 2.8386951090153185,
+  "results": [
+    {
+      "test": "1_simple_gpio",
+      "success": true,
+      "duration": 9.19087815284729,
+      "tokens_generated": 29,
+      "difficulty": "Easy"
+    },
+    {
+      "test": "2_wifi_connection",
+      "success": false,
+      "duration": 21.76013994216919,
+      "tokens_generated": 63,
+      "difficulty": "Medium"
+    },
+    {
+      "test": "3_freertos_tasks",
+      "success": true,
+      "duration": 23.05146813392639,
+      "tokens_generated": 67,
+      "difficulty": "Medium"
+    },
+    {
+      "test": "4_i2c_sensor",
+      "success": true,
+      "duration": 32.87187385559082,
+      "tokens_generated": 69,
+      "difficulty": "Hard"
+    },
+    {
+      "test": "5_http_server",
+      "success": true,
+      "duration": 38.71525478363037,
+      "tokens_generated": 123,
+      "difficulty": "Hard"
+    },
+    {
+      "test": "6_nvs_storage",
+      "success": true,
+      "duration": 39.329538106918335,
+      "tokens_generated": 127,
+      "difficulty": "Medium-Hard"
+    },
+    {
+      "test": "7_bluetooth_le",
+      "success": false,
+      "duration": 46.45512509346008,
+      "tokens_generated": 142,
+      "difficulty": "Very Hard"
+    }
+  ]
+}
