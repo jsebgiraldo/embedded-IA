@@ -1,0 +1,165 @@
+{
+  "provider": "ollama",
+  "model": null,
+  "stats": {
+    "total": 7,
+    "passed": 7,
+    "failed": 0,
+    "high_confidence": 7,
+    "medium_confidence": 0,
+    "low_confidence": 0,
+    "total_duration": 281.12095284461975
+  },
+  "success_rate": 100.0,
+  "results": [
+    {
+      "test_name": "missing_gpio_include",
+      "difficulty": "easy",
+      "error_type": "missing_include",
+      "passed": true,
+      "success": true,
+      "confidence": "high",
+      "diagnosis": "The error 'implicit declaration of function 'gpio_set_direction'' indicates that the compiler does not recognize the gpio_set_direction function, which is part of the ESP-IDF GPIO driver.",
+      "changes_made": [
+        "Added #include \"driver/gpio.h\""
+      ],
+      "validation": {
+        "code_changed": true,
+        "has_includes": true,
+        "has_app_main": true,
+        "matches_expected": true,
+        "similarity_score": 1.0
+      },
+      "duration": 31.16628098487854,
+      "error": null
+    },
+    {
+      "test_name": "wrong_gpio_type",
+      "difficulty": "medium",
+      "error_type": "wrong_type",
+      "passed": true,
+      "success": true,
+      "confidence": "high",
+      "diagnosis": "The error is due to a type mismatch between the expected gpio_num_t type for GPIO pin numbers and the int type used in the code.",
+      "changes_made": [
+        "Changed the type of 'led' from int to gpio_num_t in app_main.",
+        "Updated the parameter type of configure_led from int to gpio_num_t."
+      ],
+      "validation": {
+        "code_changed": true,
+        "has_includes": true,
+        "has_app_main": true,
+        "matches_expected": false,
+        "similarity_score": 0.96
+      },
+      "duration": 39.418643951416016,
+      "error": null
+    },
+    {
+      "test_name": "wifi_missing_headers",
+      "difficulty": "medium",
+      "error_type": "missing_include",
+      "passed": true,
+      "success": true,
+      "confidence": "high",
+      "diagnosis": "The error 'unknown type name 'esp_event_base_t'' indicates that the necessary header file for WiFi event handling is missing.",
+      "changes_made": [
+        "Added #include \"esp_wifi.h\""
+      ],
+      "validation": {
+        "code_changed": true,
+        "has_includes": true,
+        "has_app_main": true,
+        "matches_expected": false,
+        "similarity_score": 0.8666666666666667
+      },
+      "duration": 40.51262378692627,
+      "error": null
+    },
+    {
+      "test_name": "freertos_task_handle",
+      "difficulty": "medium",
+      "error_type": "wrong_type",
+      "passed": true,
+      "success": true,
+      "confidence": "high",
+      "diagnosis": "The code has type mismatch errors due to incorrect task handle types.",
+      "changes_made": [
+        "Changed the type of `handle_a` and `handle_b` from `void *` to `TaskHandle_t`."
+      ],
+      "validation": {
+        "code_changed": true,
+        "has_includes": true,
+        "has_app_main": true,
+        "matches_expected": false,
+        "similarity_score": 0.9130434782608695
+      },
+      "duration": 40.88676881790161,
+      "error": null
+    },
+    {
+      "test_name": "i2c_missing_config",
+      "difficulty": "hard",
+      "error_type": "missing_include",
+      "passed": true,
+      "success": true,
+      "confidence": "high",
+      "diagnosis": "The error 'unknown type name 'i2c_config_t'' indicates that the necessary header file for I2C operations is missing.",
+      "changes_made": [
+        "Added #include \"driver/i2c.h\""
+      ],
+      "validation": {
+        "code_changed": true,
+        "has_includes": true,
+        "has_app_main": true,
+        "matches_expected": false,
+        "similarity_score": 0.7142857142857143
+      },
+      "duration": 42.4724440574646,
+      "error": null
+    },
+    {
+      "test_name": "nvs_missing_init_and_header",
+      "difficulty": "medium",
+      "error_type": "missing_include",
+      "passed": true,
+      "success": true,
+      "confidence": "high",
+      "diagnosis": "The error 'unknown type name 'nvs_handle_t'' indicates that the necessary header file for NVS (Non-volatile Storage) operations is missing.",
+      "changes_made": [
+        "Added #include \"nvs_flash.h\"",
+        "Initialized NVS flash in app_main()"
+      ],
+      "validation": {
+        "code_changed": true,
+        "has_includes": true,
+        "has_app_main": true,
+        "matches_expected": false,
+        "similarity_score": 0.9354838709677419
+      },
+      "duration": 47.45209002494812,
+      "error": null
+    },
+    {
+      "test_name": "http_server_missing_headers",
+      "difficulty": "hard",
+      "error_type": "missing_include",
+      "passed": true,
+      "success": true,
+      "confidence": "high",
+      "diagnosis": "The error 'unknown type name 'httpd_req_t'' indicates that the header file containing the definition of httpd_req_t is missing.",
+      "changes_made": [
+        "Added #include \"esp_http_server.h\""
+      ],
+      "validation": {
+        "code_changed": true,
+        "has_includes": true,
+        "has_app_main": true,
+        "matches_expected": false,
+        "similarity_score": 0.9666666666666667
+      },
+      "duration": 39.200679063797,
+      "error": null
+    }
+  ]
+}

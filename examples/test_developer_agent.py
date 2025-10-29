@@ -1,231 +1,305 @@
 #!/usr/bin/env python3
 """
-Test Developer Agent with Real LLM
-
-This script demonstrates the Developer Agent using real LLM models
-to fix ESP32 compilation errors.
-
-Usage:
-    # With local Ollama (default)
-    python3 examples/test_developer_agent.py
-    
-    # With specific model
-    LLM_MODEL=deepseek-coder-v2:16b python3 examples/test_developer_agent.py
-    
-    # With OpenAI
-    LLM_PROVIDER=openai python3 examples/test_developer_agent.py
+Test Developer Agent with LLM Integration
+Tests code fixing capabilities with 7 ESP32 error cases
 """
 
-import os
-import sys
-from pathlib import Path
-
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from agent.llm_provider import get_llm, LLMConfig, LLMProvider
-from typing import Dict, Any
+import asyncio
+import time
+import json
+from typing import Dict, List, Any
+from agent.code_fixer import create_code_fixer, ESP32CodeFixer
+from agent.test_cases import ALL_TEST_CASES
+from agent.llm_provider import LLMProvider
 
 
-# Test cases: ESP32 code with common compilation errors
-TEST_CASES = {
-    "missing_include": {
-        "description": "Missing GPIO driver include",
-        "code": """#include <stdio.h>
-
-void app_main() {
-    gpio_set_level(GPIO_NUM_2, 1);
-    gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT);
-}""",
-        "error": """main.c:4:5: error: implicit declaration of function 'gpio_set_level'
-main.c:4:20: error: 'GPIO_NUM_2' undeclared
-main.c:5:5: error: implicit declaration of function 'gpio_set_direction'
-main.c:5:34: error: 'GPIO_MODE_OUTPUT' undeclared""",
-    },
+class DeveloperAgentTester:
+    """Tests Developer Agent code fixing with LLM"""
     
-    "wrong_delay": {
-        "description": "Using delay() instead of vTaskDelay",
-        "code": """#include <stdio.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-
-void app_main() {
-    while(1) {
-        printf("Hello\\n");
-        delay(1000);  // Wrong!
-    }
-}""",
-        "error": """main.c:8:9: error: implicit declaration of function 'delay'""",
-    },
-    
-    "missing_config": {
-        "description": "Missing WiFi include",
-        "code": """#include <stdio.h>
-
-void app_main() {
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    esp_wifi_init(&cfg);
-}""",
-        "error": """main.c:4:5: error: unknown type name 'wifi_init_config_t'
-main.c:4:30: error: 'WIFI_INIT_CONFIG_DEFAULT' undeclared
-main.c:5:5: error: implicit declaration of function 'esp_wifi_init'""",
-    }
-}
-
-
-def test_fix_code(llm, test_name: str, test_case: Dict[str, str]) -> Dict[str, Any]:
-    """
-    Test LLM's ability to fix ESP32 code
-    
-    Args:
-        llm: LLM instance
-        test_name: Name of test case
-        test_case: Dict with code, error, description
-    
-    Returns:
-        Dict with results
-    """
-    print(f"\n{'='*70}")
-    print(f"Test: {test_name}")
-    print(f"Description: {test_case['description']}")
-    print(f"{'='*70}\n")
-    
-    print("❌ Original code (with errors):")
-    print("```c")
-    print(test_case['code'])
-    print("```\n")
-    
-    print("⚠️  Compilation errors:")
-    print(test_case['error'])
-    print()
-    
-    # Create prompt for LLM
-    prompt = f"""You are an expert ESP32 embedded systems developer. Fix the following C code that has compilation errors.
-
-**Original Code:**
-```c
-{test_case['code']}
-```
-
-**Compilation Errors:**
-```
-{test_case['error']}
-```
-
-**Requirements:**
-1. Add all necessary #include statements
-2. Fix all function calls and constants
-3. Use proper ESP-IDF APIs
-4. Return ONLY the corrected code, no explanations
-5. Keep the code simple and functional
-
-**Corrected Code:**
-"""
-    
-    print("🤖 Asking LLM to fix the code...")
-    
-    try:
-        # Get fix from LLM
-        response = llm.invoke(prompt)
+    def __init__(self, provider: str = "ollama", model: str = None):
+        """
+        Initialize tester
         
-        # Extract code from response (remove markdown if present)
-        fixed_code = str(response)
-        if "```c" in fixed_code:
-            fixed_code = fixed_code.split("```c")[1].split("```")[0].strip()
-        elif "```" in fixed_code:
-            fixed_code = fixed_code.split("```")[1].split("```")[0].strip()
+        Args:
+            provider: LLM provider (ollama, openai, anthropic)
+            model: Specific model name (None = use recommended)
+        """
+        self.provider = provider
+        self.model = model
+        self.fixer = None
+        self.results = []
+        self.stats = {
+            "total": 0,
+            "passed": 0,
+            "failed": 0,
+            "high_confidence": 0,
+            "medium_confidence": 0,
+            "low_confidence": 0,
+            "total_duration": 0
+        }
+    
+    def initialize(self):
+        """Initialize code fixer"""
+        print(f"\n🚀 Initializing Developer Agent")
+        print(f"   Provider: {self.provider}")
+        if self.model:
+            print(f"   Model: {self.model}")
         
-        print("\n✅ Fixed code:")
-        print("```c")
-        print(fixed_code)
-        print("```\n")
+        try:
+            self.fixer = create_code_fixer(self.provider, self.model)
+            print("✅ Agent initialized successfully\n")
+            return True
+        except Exception as e:
+            print(f"❌ Failed to initialize: {e}\n")
+            return False
+    
+    def test_single_case(self, test_case: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Test a single error case
         
-        # Basic validation
-        has_includes = "#include" in fixed_code
-        has_app_main = "app_main" in fixed_code
+        Returns:
+            Test result dictionary
+        """
+        print(f"{'='*70}")
+        print(f"TEST: {test_case['name']}")
+        print(f"{'='*70}")
+        print(f"Description: {test_case['description']}")
+        print(f"Difficulty: {test_case['difficulty']}")
+        print(f"Error Type: {test_case['error_type']}")
         
-        success = has_includes and has_app_main
+        start_time = time.time()
         
-        return {
-            "success": success,
-            "original_code": test_case['code'],
-            "fixed_code": fixed_code,
-            "has_includes": has_includes,
-            "has_app_main": has_app_main,
+        # Run fix
+        fix_result = self.fixer.fix_code(
+            buggy_code=test_case['buggy_code'],
+            error_message=test_case.get('expected_error', 'Unknown error'),
+            error_type=test_case.get('error_type', 'compilation_error'),
+            filename=f"{test_case['name']}.c"
+        )
+        
+        duration = time.time() - start_time
+        
+        # Validate fix
+        validation = self.fixer.validate_fix(
+            fix_result.original_code,
+            fix_result.fixed_code if fix_result.fixed_code else "",
+            test_case.get('correct_code')
+        )
+        
+        # Determine if test passed
+        passed = (
+            fix_result.success and
+            validation['code_changed'] and
+            validation['has_includes'] and
+            validation['similarity_score'] > 0.6  # At least 60% match
+        )
+        
+        result = {
+            "test_name": test_case['name'],
+            "difficulty": test_case['difficulty'],
+            "error_type": test_case['error_type'],
+            "passed": passed,
+            "success": fix_result.success,
+            "confidence": fix_result.confidence,
+            "diagnosis": fix_result.diagnosis,
+            "changes_made": fix_result.changes_made,
+            "validation": validation,
+            "duration": duration,
+            "error": fix_result.error
         }
         
-    except Exception as e:
-        print(f"\n❌ Error: {e}\n")
-        return {
-            "success": False,
-            "error": str(e)
+        # Print result
+        print(f"\n{'='*70}")
+        if passed:
+            print(f"✅ TEST PASSED")
+            print(f"   Confidence: {fix_result.confidence}")
+            print(f"   Similarity: {validation['similarity_score']*100:.1f}%")
+        else:
+            print(f"❌ TEST FAILED")
+            if fix_result.error:
+                print(f"   Error: {fix_result.error}")
+            elif not validation['code_changed']:
+                print(f"   Reason: Code not changed")
+            else:
+                print(f"   Reason: Low similarity ({validation['similarity_score']*100:.1f}%)")
+        
+        print(f"   Duration: {duration:.2f}s")
+        print(f"{'='*70}\n")
+        
+        return result
+    
+    def run_all_tests(self) -> Dict[str, Any]:
+        """
+        Run all test cases
+        
+        Returns:
+            Complete test results
+        """
+        print(f"\n{'#'*70}")
+        print(f"# DEVELOPER AGENT TEST SUITE")
+        print(f"# Testing {len(ALL_TEST_CASES)} ESP32 error cases")
+        print(f"{'#'*70}\n")
+        
+        start_time = time.time()
+        
+        # Run each test
+        for i, test_case in enumerate(ALL_TEST_CASES, 1):
+            print(f"\n[{i}/{len(ALL_TEST_CASES)}] Running test: {test_case['name']}")
+            result = self.test_single_case(test_case)
+            self.results.append(result)
+            
+            # Update stats
+            self.stats['total'] += 1
+            if result['passed']:
+                self.stats['passed'] += 1
+            else:
+                self.stats['failed'] += 1
+            
+            # Count confidence levels
+            if result['confidence'] == 'high':
+                self.stats['high_confidence'] += 1
+            elif result['confidence'] == 'medium':
+                self.stats['medium_confidence'] += 1
+            elif result['confidence'] == 'low':
+                self.stats['low_confidence'] += 1
+        
+        self.stats['total_duration'] = time.time() - start_time
+        
+        return self.get_summary()
+    
+    def get_summary(self) -> Dict[str, Any]:
+        """Get test summary"""
+        success_rate = (self.stats['passed'] / self.stats['total'] * 100) if self.stats['total'] > 0 else 0
+        
+        summary = {
+            "provider": self.provider,
+            "model": self.model,
+            "stats": self.stats,
+            "success_rate": success_rate,
+            "results": self.results
         }
+        
+        return summary
+    
+    def print_summary(self):
+        """Print formatted test summary"""
+        print(f"\n{'='*70}")
+        print(f"TEST SUMMARY")
+        print(f"{'='*70}")
+        print(f"Provider: {self.provider}")
+        if self.model:
+            print(f"Model: {self.model}")
+        print(f"\nResults:")
+        print(f"  Total Tests: {self.stats['total']}")
+        print(f"  Passed: {self.stats['passed']} ✅")
+        print(f"  Failed: {self.stats['failed']} ❌")
+        print(f"  Success Rate: {self.stats['passed']/self.stats['total']*100:.1f}%")
+        print(f"\nConfidence Levels:")
+        print(f"  High: {self.stats['high_confidence']}")
+        print(f"  Medium: {self.stats['medium_confidence']}")
+        print(f"  Low: {self.stats['low_confidence']}")
+        print(f"\nPerformance:")
+        print(f"  Total Duration: {self.stats['total_duration']:.2f}s")
+        print(f"  Avg per Test: {self.stats['total_duration']/self.stats['total']:.2f}s")
+        print(f"{'='*70}\n")
+        
+        # Print results by difficulty
+        print("Results by Difficulty:")
+        for difficulty in ['easy', 'medium', 'hard']:
+            results_by_diff = [r for r in self.results if r['difficulty'] == difficulty]
+            if results_by_diff:
+                passed = sum(1 for r in results_by_diff if r['passed'])
+                total = len(results_by_diff)
+                print(f"  {difficulty.capitalize()}: {passed}/{total} ({passed/total*100:.0f}%)")
+        print()
+        
+        # Print results by error type
+        print("Results by Error Type:")
+        error_types = set(r['error_type'] for r in self.results)
+        for error_type in error_types:
+            results_by_type = [r for r in self.results if r['error_type'] == error_type]
+            passed = sum(1 for r in results_by_type if r['passed'])
+            total = len(results_by_type)
+            print(f"  {error_type}: {passed}/{total} ({passed/total*100:.0f}%)")
+        print()
+    
+    def save_results(self, filename: str = "developer_agent_test_results.json"):
+        """Save results to JSON file"""
+        summary = self.get_summary()
+        
+        with open(filename, 'w') as f:
+            json.dump(summary, f, indent=2)
+        
+        print(f"📊 Results saved to: {filename}")
 
 
 def main():
-    """Run Developer Agent tests"""
-    print("🧪 ESP32 Developer Agent - LLM Integration Test\n")
+    """Main test runner"""
+    import argparse
     
-    # Get LLM configuration from environment
-    provider = os.getenv("LLM_PROVIDER", "ollama")
-    model = os.getenv("LLM_MODEL", "qwen2.5-coder:14b")
-    
-    print(f"Provider: {provider}")
-    print(f"Model: {model}\n")
-    
-    # Initialize LLM
-    print("🔧 Initializing LLM...")
-    
-    config = LLMConfig(
-        provider=LLMProvider(provider),
-        model=model,
-        temperature=0.0,  # Deterministic for code
-        fallback_to_local=True
+    parser = argparse.ArgumentParser(description="Test Developer Agent with LLM")
+    parser.add_argument(
+        '--provider',
+        choices=['ollama', 'openai', 'anthropic'],
+        default='ollama',
+        help='LLM provider to use'
+    )
+    parser.add_argument(
+        '--model',
+        type=str,
+        default=None,
+        help='Specific model name (optional)'
+    )
+    parser.add_argument(
+        '--case',
+        type=str,
+        default=None,
+        help='Run specific test case only'
+    )
+    parser.add_argument(
+        '--save',
+        action='store_true',
+        help='Save results to JSON file'
     )
     
-    try:
-        llm = get_llm(config)
-        print("✅ LLM initialized successfully!\n")
-    except Exception as e:
-        print(f"❌ Failed to initialize LLM: {e}\n")
-        print("💡 Tips:")
-        print("   - Make sure Ollama is running: ollama serve")
-        print("   - Install model: ollama pull qwen2.5-coder:14b")
-        print("   - Or set OPENAI_API_KEY for cloud option")
-        sys.exit(1)
+    args = parser.parse_args()
+    
+    # Create tester
+    tester = DeveloperAgentTester(args.provider, args.model)
+    
+    # Initialize
+    if not tester.initialize():
+        return 1
     
     # Run tests
-    results = []
-    for test_name, test_case in TEST_CASES.items():
-        result = test_fix_code(llm, test_name, test_case)
-        results.append((test_name, result))
+    if args.case:
+        # Run specific case
+        test_case = next((tc for tc in ALL_TEST_CASES if tc['name'] == args.case), None)
+        if not test_case:
+            print(f"❌ Test case '{args.case}' not found")
+            print(f"Available: {', '.join(tc['name'] for tc in ALL_TEST_CASES)}")
+            return 1
         
-        # Pause between tests
-        input("\nPress Enter to continue to next test...")
-    
-    # Summary
-    print(f"\n{'='*70}")
-    print("📊 Test Summary")
-    print(f"{'='*70}\n")
-    
-    passed = sum(1 for _, r in results if r.get("success", False))
-    total = len(results)
-    
-    for test_name, result in results:
-        status = "✅ PASS" if result.get("success") else "❌ FAIL"
-        print(f"{status} - {test_name}")
-        if not result.get("success") and "error" in result:
-            print(f"      Error: {result['error']}")
-    
-    print(f"\nResults: {passed}/{total} tests passed ({passed*100//total}%)")
-    
-    if passed == total:
-        print("\n🎉 All tests passed! Developer Agent is ready for Phase 2!")
+        result = tester.test_single_case(test_case)
+        tester.results.append(result)
+        tester.stats['total'] = 1
+        tester.stats['passed'] = 1 if result['passed'] else 0
+        tester.stats['failed'] = 0 if result['passed'] else 1
     else:
-        print("\n⚠️  Some tests failed. Check the output above for details.")
+        # Run all tests
+        tester.run_all_tests()
     
-    print(f"\n{'='*70}\n")
+    # Print summary
+    tester.print_summary()
+    
+    # Save results if requested
+    if args.save:
+        tester.save_results()
+    
+    # Return exit code based on success rate
+    success_rate = (tester.stats['passed'] / tester.stats['total'] * 100)
+    return 0 if success_rate >= 70 else 1
 
 
 if __name__ == "__main__":
-    main()
+    exit(main())
