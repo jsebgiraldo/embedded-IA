@@ -1,0 +1,25 @@
+{
+  "ref": "refs/heads/master",
+  "repository": {
+    "full_name": "espressif/esp-idf-template",
+    "clone_url": "https://github.com/espressif/esp-idf-template.git"
+  },
+  "head_commit": {
+    "id": "418fb4d0ecb0bdaefc6220ef4c64b2bf529725ad",
+    "message": "Test webhook commit",
+    "author": {
+      "name": "Test User",
+      "email": "test@example.com"
+    },
+    "timestamp": "2025-11-17T14:00:00Z"
+  },
+  "commits": [
+    {
+      "id": "418fb4d0ecb0bdaefc6220ef4c64b2bf529725ad",
+      "message": "Test commit"
+    }
+  ],
+  "pusher": {
+    "name": "testuser"
+  }
+}

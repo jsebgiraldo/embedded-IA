@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Developer Agent Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/llm.css">
+    <link rel="stylesheet" href="/static/css/projects.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🤖 ESP32 Developer Agent Dashboard</h1>
+            <div class="header-stats">
+                <div class="stat-badge" id="system-status">
+                    <span class="status-icon">🟢</span>
+                    <span>System OK</span>
+                </div>
+                <div class="stat-badge" id="llm-status">
+                    <span class="status-icon">⚪</span>
+                    <span>LLM: Checking...</span>
+                </div>
+                <div class="stat-badge" id="ws-status">
+                    <span class="status-icon">⚪</span>
+                    <span>Connecting...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tabs">
+            <button class="tab-btn active" onclick="switchTab('dashboard')">📊 Dashboard</button>
+            <button class="tab-btn" onclick="switchTab('projects')">📦 Projects</button>
+            <button class="tab-btn" onclick="switchTab('llm-chat')">💬 LLM Chat</button>
+            <button class="tab-btn" onclick="switchTab('code-gen')">⚡ Code Generator</button>
+            <button class="tab-btn" onclick="switchTab('code-fix')">🔧 Code Fixer</button>
+        </nav>
+
+        <!-- Tab Content -->
+        <div id="dashboard" class="tab-content active">
+            <!-- Summary Cards -->
+            <div class="summary-cards">
+                <div class="card">
+                    <div class="card-icon">🤖</div>
+                    <div class="card-content">
+                        <h3 id="active-agents-count">0</h3>
+                        <p>Active Agents</p>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-icon">⚙️</div>
+                    <div class="card-content">
+                        <h3 id="jobs-count">0</h3>
+                        <p>Running Jobs</p>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-icon">✅</div>
+                    <div class="card-content">
+                        <h3 id="success-rate">0%</h3>
+                        <p>Success Rate</p>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-icon">⏱️</div>
+                    <div class="card-content">
+                        <h3 id="avg-time">0s</h3>
+                        <p>Avg Time</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content Area -->
+            <div class="main-content">
+                <!-- Left Column: Agents & Current Workflow -->
+                <div class="left-column">
+                    <!-- Agents Section -->
+                    <section class="section">
+                        <div class="section-header">
+                            <h2>🤖 Agents</h2>
+                            <button class="btn btn-small" onclick="refreshAgents()">🔄 Refresh</button>
+                        </div>
+                        <div id="agents-list" class="agents-list">
+                            <!-- Agents will be populated here -->
+                        </div>
+                    </section>
+
+                    <!-- Recent Jobs -->
+                    <section class="section">
+                        <div class="section-header">
+                            <h2>📋 Recent Jobs</h2>
+                            <button class="btn btn-small btn-danger" onclick="clearAllJobs()">🗑️ Clear All</button>
+                        </div>
+                        <div id="jobs-list" class="jobs-list">
+                            <!-- Jobs will be populated here -->
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Right Column: Live Logs -->
+                <div class="right-column">
+                    <section class="section logs-section">
+                        <div class="section-header">
+                            <h2>📝 Live Logs</h2>
+                            <div class="log-controls">
+                                <button class="btn btn-small" onclick="clearLogs()">🗑️ Clear</button>
+                                <label>
+                                    <input type="checkbox" id="auto-scroll" checked> Auto-scroll
+                                </label>
+                            </div>
+                        </div>
+                        <div id="logs" class="logs-container">
+                            <div class="log-entry log-info">
+                                <span class="log-time">--:--:--</span>
+                                <span class="log-agent">System</span>
+                                <span class="log-message">Dashboard started. Connecting to websocket...</span>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+
+        <!-- Projects Tab -->
+        <div id="projects" class="tab-content">
+            <!-- Projects Header -->
+            <div class="section-header">
+                <h2>📦 GitHub Projects</h2>
+                <button class="btn btn-primary" onclick="showNewProjectModal()">➕ New Project</button>
+            </div>
+
+            <!-- Projects Stats -->
+            <div class="summary-cards">
+                <div class="card">
+                    <div class="card-icon">📦</div>
+                    <div class="card-content">
+                        <h3 id="total-projects">0</h3>
+                        <p>Total Projects</p>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-icon">✅</div>
+                    <div class="card-content">
+                        <h3 id="active-projects">0</h3>
+                        <p>Active</p>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-icon">🔨</div>
+                    <div class="card-content">
+                        <h3 id="total-builds">0</h3>
+                        <p>Total Builds</p>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-icon">📈</div>
+                    <div class="card-content">
+                        <h3 id="projects-success-rate">0%</h3>
+                        <p>Build Success Rate</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Projects List -->
+            <section class="section">
+                <div class="section-header">
+                    <h3>Projects List</h3>
+                    <div class="filter-controls">
+                        <select id="project-status-filter" onchange="loadProjects()">
+                            <option value="">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="pending">Pending</option>
+                            <option value="error">Error</option>
+                        </select>
+                        <button class="btn btn-small" onclick="loadProjects()">🔄 Refresh</button>
+                    </div>
+                </div>
+                <div id="projects-list" class="projects-list">
+                    <!-- Projects will be populated here -->
+                    <div class="loading-spinner">Loading projects...</div>
+                </div>
+            </section>
+        </div>
+
+        <!-- LLM Chat Tab -->
+        <div id="llm-chat" class="tab-content">
+            <div class="llm-container">
+                <div class="llm-sidebar">
+                    <h3>💡 Quick Actions</h3>
+                    <button class="quick-action-btn" onclick="sendQuickQuestion('How do I initialize WiFi on ESP32?')">
+                        📡 WiFi Setup
+                    </button>
+                    <button class="quick-action-btn" onclick="sendQuickQuestion('Show me how to use GPIO interrupts')">
+                        ⚡ GPIO Interrupts
+                    </button>
+                    <button class="quick-action-btn" onclick="sendQuickQuestion('How do I use I2C communication?')">
+                        🔌 I2C Communication
+                    </button>
+                    <button class="quick-action-btn" onclick="sendQuickQuestion('Explain FreeRTOS tasks')">
+                        📚 FreeRTOS Tasks
+                    </button>
+                    <button class="quick-action-btn" onclick="sendQuickQuestion('Best practices for power management')">
+                        🔋 Power Management
+                    </button>
+                    
+                    <h3 style="margin-top: 20px;">⚙️ Settings</h3>
+                    <label class="setting-label">
+                        Temperature (creativity):
+                        <input type="range" id="chat-temperature" min="0" max="100" value="70" 
+                               oninput="document.getElementById('temp-value').textContent = (this.value/100).toFixed(2)">
+                        <span id="temp-value">0.70</span>
+                    </label>
+                </div>
+                
+                <div class="llm-chat-container">
+                    <div class="chat-header">
+                        <h2>💬 Chat with ESP32 LLM Assistant</h2>
+                        <button class="btn btn-small" onclick="clearChat()">🗑️ Clear Chat</button>
+                    </div>
+                    <div id="chat-messages" class="chat-messages">
+                        <div class="chat-message assistant">
+                            <div class="message-avatar">🤖</div>
+                            <div class="message-content">
+                                <strong>ESP32 Assistant</strong>
+                                <p>Hello! I'm your ESP32 development assistant powered by Qwen2.5-Coder. Ask me anything about ESP32 development, ESP-IDF, hardware interfacing, or embedded C programming.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-input-container">
+                        <textarea id="chat-input" placeholder="Ask me about ESP32 development..." 
+                                  onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendChatMessage();}"></textarea>
+                        <button class="btn btn-primary" onclick="sendChatMessage()" id="send-btn">
+                            <span>Send</span> <span>📤</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Code Generator Tab -->
+        <div id="code-gen" class="tab-content">
+            <div class="code-gen-container">
+                <div class="code-gen-left">
+                    <h2>⚡ AI Code Generator</h2>
+                    <p class="help-text">Describe what you want to build, and the LLM will generate complete ESP32 code for you.</p>
+                    
+                    <label for="code-description">What do you want to build?</label>
+                    <textarea id="code-description" placeholder="Example: Create a web server that controls 2 LEDs via HTTP API. LED 1 on GPIO 2, LED 2 on GPIO 4. Include endpoints to turn them on/off individually." rows="6"></textarea>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="code-language">Language:</label>
+                            <select id="code-language">
+                                <option value="c">C</option>
+                                <option value="cpp">C++</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="code-framework">Framework:</label>
+                            <select id="code-framework">
+                                <option value="esp-idf">ESP-IDF</option>
+                                <option value="arduino">Arduino</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="gen-temperature">Creativity:</label>
+                            <select id="gen-temperature">
+                                <option value="0.1">Deterministic</option>
+                                <option value="0.3">Focused</option>
+                                <option value="0.5" selected>Balanced</option>
+                                <option value="0.7">Creative</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-primary btn-large" onclick="generateCode()">
+                        ⚡ Generate Code
+                    </button>
+                </div>
+                
+                <div class="code-gen-right">
+                    <div class="code-output-header">
+                        <h3>Generated Code</h3>
+                        <button class="btn btn-small" onclick="copyGeneratedCode()" id="copy-code-btn">
+                            📋 Copy
+                        </button>
+                    </div>
+                    <div id="code-output" class="code-output">
+                        <pre><code>// Generated code will appear here...
+
+// Example workflow:
+// 1. Describe what you want in natural language
+// 2. Click "Generate Code"
+// 3. The LLM will create complete, working ESP32 code
+// 4. Copy and use it in your project!</code></pre>
+                    </div>
+                    
+                    <div class="code-explanation">
+                        <h4>Explanation</h4>
+                        <div id="code-explanation">
+                            The LLM will provide a detailed explanation of the generated code here.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Code Fixer Tab -->
+        <div id="code-fix" class="tab-content">
+            <div class="code-fix-container">
+                <div class="code-fix-left">
+                    <h2>🔧 AI Code Fixer</h2>
+                    <p class="help-text">Paste your buggy code and error message. The LLM will diagnose and fix it automatically.</p>
+                    
+                    <label for="buggy-code">Your Code (with bugs):</label>
+                    <textarea id="buggy-code" placeholder="#include <stdio.h>
+#include &quot;freertos/FreeRTOS.h&quot;
+#include &quot;freertos/task.h&quot;
+
+#define LED_PIN GPIO_NUM_2
+
+void app_main(void)
+{
+    gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
+    
+    while(1) {
+        gpio_set_level(LED_PIN, 1);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        gpio_set_level(LED_PIN, 0);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+}" rows="15"></textarea>
+                    
+                    <label for="error-message">Error Message:</label>
+                    <textarea id="error-message" placeholder="main.c:8:5: error: implicit declaration of function 'gpio_set_direction'; did you mean 'gpio_pad_select_gpio'?" rows="3"></textarea>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="fix-filename">Filename:</label>
+                            <input type="text" id="fix-filename" value="main.c">
+                        </div>
+                        <div class="form-group">
+                            <label for="fix-component">Component:</label>
+                            <input type="text" id="fix-component" value="main">
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-primary btn-large" onclick="fixCode()">
+                        🔧 Fix Code
+                    </button>
+                </div>
+                
+                <div class="code-fix-right">
+                    <div class="fix-status" id="fix-status">
+                        <div class="status-icon">⏳</div>
+                        <div class="status-text">Ready to fix code</div>
+                    </div>
+                    
+                    <div class="fix-result" id="fix-result" style="display: none;">
+                        <div class="fix-header">
+                            <h3>Diagnosis</h3>
+                        </div>
+                        <div id="fix-diagnosis" class="fix-diagnosis">
+                            <!-- Diagnosis will appear here -->
+                        </div>
+                        
+                        <div class="fix-header">
+                            <h3>Changes Made</h3>
+                        </div>
+                        <div id="fix-changes" class="fix-changes">
+                            <!-- Changes list will appear here -->
+                        </div>
+                        
+                        <div class="fix-header">
+                            <h3>Fixed Code</h3>
+                            <button class="btn btn-small" onclick="copyFixedCode()">📋 Copy</button>
+                        </div>
+                        <div id="fixed-code-output" class="code-output">
+                            <pre><code>// Fixed code will appear here...</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Project Modal -->
+    <div id="new-project-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>➕ New GitHub Project</h2>
+                <span class="close" onclick="closeNewProjectModal()">&times;</span>
+            </div>
+            <form id="new-project-form" onsubmit="createProject(event)">
+                <div class="form-group">
+                    <label for="project-name">Project Name *</label>
+                    <input type="text" id="project-name" required placeholder="my-esp32-project">
+                </div>
+                
+                <div class="form-group">
+                    <label for="project-repo-url">Repository URL *</label>
+                    <input type="url" id="project-repo-url" required placeholder="https://github.com/user/repo.git">
+                    <small>Full HTTPS clone URL from GitHub</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="project-branch">Branch</label>
+                    <input type="text" id="project-branch" value="main" placeholder="main">
+                </div>
+                
+                <div class="form-group">
+                    <label for="project-target">Build Target</label>
+                    <select id="project-target">
+                        <option value="esp32">ESP32</option>
+                        <option value="esp32s2">ESP32-S2</option>
+                        <option value="esp32s3">ESP32-S3</option>
+                        <option value="esp32c3">ESP32-C3</option>
+                        <option value="esp32c6">ESP32-C6</option>
+                        <option value="esp32h2">ESP32-H2</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="project-webhook-secret">Webhook Secret (optional)</label>
+                    <input type="text" id="project-webhook-secret" placeholder="Leave empty to auto-generate">
+                    <small>Use this secret when configuring GitHub webhook</small>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeNewProjectModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Project</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Project Detail Modal -->
+    <div id="project-detail-modal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2 id="detail-project-name">Project Details</h2>
+                <span class="close" onclick="closeProjectDetailModal()">&times;</span>
+            </div>
+            <div id="project-detail-content">
+                <!-- Project details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/main.js"></script>
+    <script src="/static/js/llm.js"></script>
+    <script src="/static/js/projects.js"></script>
+</body>
+</html>

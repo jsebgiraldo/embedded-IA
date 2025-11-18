@@ -35,6 +35,7 @@ class LLMProvider(str, Enum):
     """Supported LLM providers"""
     OLLAMA = "ollama"
     OPENAI = "openai"
+    DEEPSEEK = "deepseek"
     ANTHROPIC = "anthropic"
     AZURE = "azure"
 
@@ -59,8 +60,20 @@ class LLMConfig:
     
     def __post_init__(self):
         """Load from environment if not specified"""
-        if self.provider == LLMProvider.OPENAI and not self.api_key:
+        # Read LLM_MODEL from environment if using default
+        if self.model == "qwen2.5-coder:14b":  # Default value
+            self.model = os.getenv("LLM_MODEL", self.model)
+        
+        # Read provider-specific configuration
+        if self.provider == LLMProvider.OLLAMA and not self.base_url:
+            self.base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        elif self.provider == LLMProvider.OPENAI and not self.api_key:
             self.api_key = os.getenv("OPENAI_API_KEY")
+        elif self.provider == LLMProvider.DEEPSEEK:
+            if not self.api_key:
+                self.api_key = os.getenv("DEEPSEEK_API_KEY")
+            if not self.base_url:
+                self.base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
         elif self.provider == LLMProvider.ANTHROPIC and not self.api_key:
             self.api_key = os.getenv("ANTHROPIC_API_KEY")
         elif self.provider == LLMProvider.AZURE:
@@ -80,6 +93,11 @@ RECOMMENDED_MODELS = {
         "best": "gpt-4o",
         "balanced": "gpt-4o-mini",
         "fast": "gpt-3.5-turbo"
+    },
+    LLMProvider.DEEPSEEK: {
+        "best": "deepseek-coder-v2",
+        "balanced": "deepseek-coder-v2",
+        "fast": "deepseek-chat"
     },
     LLMProvider.ANTHROPIC: {
         "best": "claude-3-5-sonnet-20241022",
@@ -158,6 +176,33 @@ def get_openai_llm(config: LLMConfig) -> BaseLLM:
         timeout=config.timeout,
     )
     
+    return llm
+
+
+def get_deepseek_llm(config: LLMConfig) -> BaseLLM:
+    """Get DeepSeek LLM instance (OpenAI-compatible API)"""
+    try:
+        from langchain_openai import ChatOpenAI
+    except ImportError:
+        raise ImportError(
+            "langchain-openai not installed. "
+            "Install with: pip install langchain-openai"
+        )
+    api_key = config.api_key or os.getenv("DEEPSEEK_API_KEY")
+    if not api_key:
+        raise ValueError(
+            "DeepSeek API key required. Set DEEPSEEK_API_KEY env var "
+            "or pass api_key in config"
+        )
+    base_url = config.base_url or os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
+    llm = ChatOpenAI(
+        model=config.model,
+        temperature=config.temperature,
+        max_tokens=config.max_tokens,
+        api_key=api_key,
+        base_url=base_url,
+        timeout=config.timeout,
+    )
     return llm
 
 
@@ -272,6 +317,7 @@ def get_llm(config: Optional[LLMConfig] = None) -> BaseLLM:
     providers = {
         LLMProvider.OLLAMA: get_ollama_llm,
         LLMProvider.OPENAI: get_openai_llm,
+        LLMProvider.DEEPSEEK: get_deepseek_llm,
         LLMProvider.ANTHROPIC: get_anthropic_llm,
         LLMProvider.AZURE: get_azure_llm,
     }
@@ -293,6 +339,7 @@ def get_llm(config: Optional[LLMConfig] = None) -> BaseLLM:
                     provider=LLMProvider.OLLAMA,
                     model=RECOMMENDED_MODELS[LLMProvider.OLLAMA]["balanced"],
                     temperature=config.temperature,
+                    base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
                 )
                 llm = get_ollama_llm(fallback_config)
                 print(f"✅ Fallback successful: {fallback_config.model}")

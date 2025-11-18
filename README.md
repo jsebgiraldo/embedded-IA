@@ -13,9 +13,26 @@ Transform your ESP32 development workflow with specialized AI agents that coordi
 
 ## 🌟 Key Features
 
+### 🌐 **Real-Time Web Dashboard**
+- **Live Monitoring** - Real-time agent status, logs, and metrics
+- **WebSocket Updates** - Instant event notifications
+- **Job Management** - Track workflows, builds, and tests
+- **LLM Integration** - AI-powered chat, code generation, and bug fixing
+- **Project Management** - Import and manage GitHub repositories
+- **REST API** - Complete API for integration
+- **SQLite Backend** - Persistent storage with full history
+
+### 📦 **GitHub Import & CI/CD** (NEW!)
+- **Automatic Import** - Clone repositories from GitHub automatically
+- **Webhook Integration** - Receive push/PR events in real-time
+- **Build Triggers** - Automatic builds on code changes
+- **Git Operations** - Pull updates, checkout commits, track history
+- **Build History** - Full audit trail with metrics and analytics
+- **HMAC Validation** - Secure webhook signature verification
+
 ### 🎭 **6 Specialized Agents**
 - **🎯 Project Manager** - Project setup, validation, and coordination
-- **👨‍💻 Developer** - Code writing and automated bug fixing
+- **👨‍💻 Developer** - Code writing and automated bug fixing with LLM
 - **🔨 Builder** - Optimized compilation with SHA256 artifact caching
 - **🧪 Tester** - Parallel hardware flashing + QEMU simulation
 - **🏥 Doctor** - Hardware diagnostics and environment validation
@@ -44,6 +61,7 @@ Transform your ESP32 development workflow with specialized AI agents that coordi
 ## 📋 Table of Contents
 
 - [Quick Start](#-quick-start)
+- [LLM Integration](#-llm-integration)
 - [System Architecture](#-system-architecture)
 - [Performance Metrics](#-performance-metrics)
 - [Usage Examples](#-usage-examples)
@@ -62,6 +80,7 @@ Transform your ESP32 development workflow with specialized AI agents that coordi
 - Docker & Docker Compose
 - Python 3.12+ (for local development)
 - macOS/Linux (Windows via WSL2)
+- **Ollama with qwen2.5-coder:7b** (dockerized, included)
 
 ### 1. Clone and Setup
 
@@ -76,21 +95,32 @@ cp .env.example .env
 nano .env
 ```
 
-### 2. Start Services
+### 2. Start Services with Dashboard
 
 ```bash
-# Start Docker containers
-docker compose up -d
+# Start all services (including Web Dashboard + Ollama)
+./docker-manager.sh start
+
+# Or using docker-compose directly
+docker-compose up -d
 
 # Verify services are running
-docker compose ps
+./docker-manager.sh status
 ```
 
-### 3. Run Your First Workflow
+### 3. Access the Dashboard
+
+Open your browser at **http://localhost:8000** to see:
+- Real-time agent status
+- Live log streaming
+- Workflow progress
+- Job history and metrics
+
+### 4. Run Your First Workflow
 
 ```bash
-# Simple workflow demonstration
-python3 examples/demo_workflow_simple.py
+# Simple workflow demonstration (watch it in the dashboard!)
+python3 examples/demo_dashboard_workflow.py
 
 # Visual architecture viewer
 python3 examples/show_architecture.py
@@ -110,6 +140,46 @@ idf.py -p /dev/ttyUSB0 flash
 
 ---
 
+## 🤖 LLM Integration
+
+The system includes a local LLM (Qwen2.5-Coder) for intelligent code generation and bug fixing.
+
+### Quick LLM Chat
+
+```bash
+# Ask a question
+./scripts/chat-llm.sh "How do I use I2C on ESP32?"
+
+# Interactive mode
+./scripts/chat-llm.sh
+```
+
+### Automatic Code Fixing
+
+The **Developer Agent** uses the LLM to automatically fix compilation errors:
+
+```python
+# The orchestrator automatically fixes bugs detected by QA
+result = await orchestrator.run_workflow()
+
+# Example fix:
+# Input:  "implicit declaration of function 'gpio_set_direction'"
+# Output: Added #include "driver/gpio.h"
+# Confidence: high
+```
+
+### LLM Features
+
+- **🔧 Code Generation** - Write ESP32 code from natural language
+- **🐛 Bug Fixing** - Automatically fix compilation errors
+- **📚 Documentation** - Explain existing code
+- **💡 Best Practices** - Suggest optimizations and security improvements
+- **🎯 ESP32-Specific** - Trained on embedded systems and ESP-IDF
+
+**[Full LLM documentation →](docs/LLM_USAGE.md)**
+
+---
+
 ## 🏗️ System Architecture
 
 ```
@@ -117,12 +187,26 @@ idf.py -p /dev/ttyUSB0 flash
 │                   User / LLM Interface                       │
 └───────────────────────┬──────────────────────────────────────┘
                         │
-                        ▼
+        ┌───────────────┴───────────────┐
+        │                               │
+        ▼                               ▼
+┌─────────────────────┐         ┌────────────────────┐
+│  Web Dashboard      │         │  CLI Interface     │
+│  (FastAPI+WS)       │         │  (Direct Access)   │
+│  • Real-time UI     │         │  • Scripts         │
+│  • REST API         │         │  • Workflows       │
+│  • SQLite DB        │         │                    │
+└──────────┬──────────┘         └─────────┬──────────┘
+           │                              │
+           └──────────┬───────────────────┘
+                      │
+                      ▼
 ┌──────────────────────────────────────────────────────────────┐
 │              Agent Orchestrator (AsyncIO)                    │
 │  • Task Dependency Management                                │
 │  • Parallel Execution Engine                                 │
 │  • QA Feedback Loop Controller                               │
+│  • Event Emitter (Real-time updates)                         │
 └─────┬──────┬──────┬──────┬──────┬──────────────────────────┘
       │      │      │      │      │
    ┌──┴──┐┌──┴──┐┌──┴──┐┌──┴──┐┌──┴──┐
@@ -253,6 +337,107 @@ asyncio.run(main())
 # Second build (with cache) - should be ~2-3 min faster
 ./scripts/test_flash_cached.sh
 ```
+
+---
+
+## 🌐 Web Dashboard
+
+The ESP32 Multi-Agent System includes a **real-time web dashboard** for monitoring and managing agents, workflows, and builds.
+
+### Features
+
+- **📊 Real-time Monitoring**: Live agent status, logs, and metrics
+- **🔌 WebSocket Events**: Instant updates without polling
+- **📝 Job History**: Track all workflows, builds, and tests
+- **🔍 Advanced Filtering**: Search logs by level, agent, time range
+- **📈 Metrics Dashboard**: Success rates, durations, error analysis
+- **🎯 REST API**: Full programmatic access
+
+### Quick Start
+
+```bash
+# Start dashboard (included in docker-compose)
+./docker-manager.sh start
+
+# Or start standalone
+cd web-server
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+### Access Points
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| Dashboard | http://localhost:8000 | Main web interface |
+| API Docs | http://localhost:8000/docs | Interactive Swagger UI |
+| WebSocket | ws://localhost:8000/ws | Real-time event stream |
+
+### REST API Examples
+
+```bash
+# Get all agents
+curl http://localhost:8000/api/agents
+
+# Get recent jobs
+curl http://localhost:8000/api/jobs?limit=10
+
+# Get logs from last hour
+curl http://localhost:8000/api/logs?since_minutes=60
+
+# Get metrics summary
+curl http://localhost:8000/api/metrics/summary?since_hours=24
+```
+
+### WebSocket Integration
+
+```javascript
+// Connect to real-time events
+const ws = new WebSocket('ws://localhost:8000/ws');
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log('Event:', data.type, data.payload);
+  
+  // Handle different event types
+  if (data.type === 'agent_status_changed') {
+    updateAgentUI(data.payload);
+  } else if (data.type === 'log') {
+    appendLog(data.payload);
+  }
+};
+```
+
+### Python Integration
+
+```python
+from web-server.api_client import DashboardClient
+
+# Create client
+client = DashboardClient("http://localhost:8000")
+
+# Track workflow in dashboard
+job_id = client.create_job(
+    job_type="build",
+    agent_id="build",
+    status="running"
+)
+
+# Emit progress
+client.emit_log(
+    level="INFO",
+    message="Building project...",
+    agent_id="build",
+    job_id=job_id
+)
+
+# Complete job
+client.update_job(job_id, status="completed")
+```
+
+For more details, see [DOCKER_GUIDE.md](./DOCKER_GUIDE.md).
 
 ---
 
@@ -547,6 +732,10 @@ Run powerful AI models locally without cloud dependencies:
 # Quick setup (macOS/Linux)
 ./scripts/setup_local_llm.sh
 
+# Run Ollama inside Docker (ships with qwen3-coder by default)
+./scripts/ollama-docker.sh start          # start esp32-ollama service
+./scripts/ollama-docker.sh status         # verify health / list models
+
 # Choose your model tier
 ./scripts/setup_local_llm.sh best         # DeepSeek 16B (20GB RAM)
 ./scripts/setup_local_llm.sh balanced     # Qwen2.5 14B (18GB RAM) ⭐
@@ -558,6 +747,8 @@ Run powerful AI models locally without cloud dependencies:
 - ⭐ **Qwen2.5-Coder 14B** - Excellent for ESP32/embedded (recommended)
 - ⚡ **CodeLlama 13B** - Fast and efficient
 - 🪶 **CodeLlama 7B** - Lightweight, works on 8GB RAM
+
+**Need cloud performance?** Set `LLM_PROVIDER=deepseek` + `DEEPSEEK_API_KEY=...` in `.env` for instant fallback to the hosted DeepSeek endpoint. The orchestrator will keep using the local model whenever it’s available and automatically switch to DeepSeek if the container is down or the fix requires larger context.
 
 **Test It**:
 ```bash

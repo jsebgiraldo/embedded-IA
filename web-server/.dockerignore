@@ -1,0 +1,30 @@
+# Ignorar venv local
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Ignorar base de datos local (se creará en volumen)
+data/*.db
+data/*.db-journal
+
+# Ignorar archivos de IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Ignorar logs
+*.log
+
+# Ignorar archivos de sistema
+.DS_Store
+Thumbs.db

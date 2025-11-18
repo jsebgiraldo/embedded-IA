@@ -1,4 +1,77 @@
 services:
+  # Web Dashboard - Real-time monitoring and management
+  web-dashboard:
+    build: ./web-server
+    container_name: esp32-web-dashboard
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./web-server:/app
+      - ./agent:/agent
+      - dashboard-data:/app/data
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      - LLM_MODEL=${LLM_MODEL:-qwen2.5-coder:7b}
+      - OLLAMA_BASE_URL=${OLLAMA_INTERNAL_URL:-http://ollama:11434}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/agents || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - esp32-network
+
+  # Ollama LLM Server - DEPRECATED: Usar Docker Desktop Models en su lugar
+  # Docker Desktop Models expone modelos en localhost:11434 sin necesidad de este contenedor
+  # Mantener comentado como referencia pero ya no se usa
+  #
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: esp32-ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama-data:/root/.ollama
+  #   environment:
+  #     - OLLAMA_HOST=0.0.0.0:11434
+  #   restart: unless-stopped
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 14G  # Ajustado para Qwen 14B (necesita ~10GB)
+  #       reservations:
+  #         memory: 8G
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "ollama list > /dev/null 2>&1 || exit 1"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 10s
+
+  # Ollama LLM Server (local dockerized instance)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: esp32-ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list > /dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - esp32-network
+
   # Main development container with ESP-IDF
   dev:
     image: espressif/idf:latest
@@ -10,10 +83,15 @@ services:
       - IDF_PYTHON_CHECK_CONSTRAINTS=no
       - ESP_IDF_TARGET=${ESP_IDF_TARGET:-esp32}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # Ollama connection (local container by default; override via .env if using host models)
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      - LLM_MODEL=${LLM_MODEL:-qwen3-coder:latest}
+      - OLLAMA_BASE_URL=${OLLAMA_INTERNAL_URL:-http://ollama:11434}
     volumes:
       - ./workspace:/workspace
-      - ./agent/app:/agent
+      - ./agent:/agent
       - ./mcp-server:/mcp-server
+      - ./examples:/examples
       # Optional pip cache
       - pip-cache:/root/.cache/pip
     # Serial port access (Linux)
@@ -24,7 +102,10 @@ services:
     privileged: true
     tty: true
     stdin_open: true
-    command: bash -lc "python3 -m pip install --upgrade pip && pip install langchain langchain-community openai rich mcp psutil && tail -f /dev/null"
+    networks:
+      - esp32-network
+    # Compatible con Ollama local o Docker Desktop Models
+    command: bash -lc "python3 -m pip install --upgrade pip && pip install langchain langchain-community langchain-ollama openai rich mcp psutil && tail -f /dev/null"
 
   # MCP Server - Separates tool logic from agent
   mcp-server:
@@ -33,17 +114,30 @@ services:
     working_dir: /workspace
     environment:
       - ESP_IDF_TARGET=${ESP_IDF_TARGET:-esp32}
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      - LLM_MODEL=${LLM_MODEL:-qwen3-coder:latest}
+      - OLLAMA_BASE_URL=${OLLAMA_INTERNAL_URL:-http://ollama:11434}
     volumes:
       - ./workspace:/workspace
       - ./mcp-server:/mcp-server
+      - ./examples:/examples
       - pip-cache:/root/.cache/pip
     devices:
-      - /dev/ttyUSB0:/dev/ttyUSB0
+      - /dev/ttyUSB0:/dev/ttyACM0
       - /dev/ttyACM0:/dev/ttyACM0
     privileged: true
     tty: true
     stdin_open: true
-    command: bash -lc "python3 -m pip install --upgrade pip && pip install langchain langchain-community && cd /mcp-server && pip install -e . && echo '✅ MCP Server ready' && tail -f /dev/null"
+    networks:
+      - esp32-network
+    # Compatible con Ollama local o Docker Desktop Models
+    command: bash -lc "python3 -m pip install --upgrade pip && pip install langchain langchain-community langchain-ollama && cd /mcp-server && pip install -e . && echo '✅ MCP Server ready' && tail -f /dev/null"
+
+networks:
+  esp32-network:
+    driver: bridge
 
 volumes:
   pip-cache:
+  dashboard-data:
+  ollama-data:

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Developer Agent Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🤖 ESP32 Developer Agent Dashboard</h1>
+            <div class="header-stats">
+                <div class="stat-badge" id="system-status">
+                    <span class="status-icon">🟢</span>
+                    <span>System OK</span>
+                </div>
+                <div class="stat-badge" id="ws-status">
+                    <span class="status-icon">⚪</span>
+                    <span>Connecting...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Summary Cards -->
+        <div class="summary-cards">
+            <div class="card">
+                <div class="card-icon">🤖</div>
+                <div class="card-content">
+                    <h3 id="active-agents-count">0</h3>
+                    <p>Active Agents</p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-icon">⚙️</div>
+                <div class="card-content">
+                    <h3 id="jobs-count">0</h3>
+                    <p>Running Jobs</p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-icon">✅</div>
+                <div class="card-content">
+                    <h3 id="success-rate">0%</h3>
+                    <p>Success Rate</p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-icon">⏱️</div>
+                <div class="card-content">
+                    <h3 id="avg-time">0s</h3>
+                    <p>Avg Time</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Left Column: Agents & Current Workflow -->
+            <div class="left-column">
+                <!-- Agents Section -->
+                <section class="section">
+                    <div class="section-header">
+                        <h2>🤖 Agents</h2>
+                        <button class="btn btn-small" onclick="refreshAgents()">🔄 Refresh</button>
+                    </div>
+                    <div id="agents-list" class="agents-list">
+                        <!-- Agents will be populated here -->
+                    </div>
+                </section>
+
+                <!-- Current Workflow -->
+                <section class="section">
+                    <div class="section-header">
+                        <h2>🔄 Current Workflow</h2>
+                    </div>
+                    <div id="workflow" class="workflow">
+                        <div class="workflow-phase" data-phase="detect">
+                            <div class="phase-name">Detect</div>
+                            <div class="phase-status">⏳</div>
+                            <div class="phase-time">--</div>
+                        </div>
+                        <div class="workflow-arrow">→</div>
+                        <div class="workflow-phase" data-phase="analyze">
+                            <div class="phase-name">Analyze</div>
+                            <div class="phase-status">⏳</div>
+                            <div class="phase-time">--</div>
+                        </div>
+                        <div class="workflow-arrow">→</div>
+                        <div class="workflow-phase" data-phase="fix">
+                            <div class="phase-name">Fix</div>
+                            <div class="phase-status">⏳</div>
+                            <div class="phase-time">--</div>
+                        </div>
+                        <div class="workflow-arrow">→</div>
+                        <div class="workflow-phase" data-phase="validate">
+                            <div class="phase-name">Validate</div>
+                            <div class="phase-status">⏳</div>
+                            <div class="phase-time">--</div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Right Column: Logs & Jobs -->
+            <div class="right-column">
+                <!-- Logs Section -->
+                <section class="section">
+                    <div class="section-header">
+                        <h2>📋 Live Logs</h2>
+                        <div class="log-controls">
+                            <select id="log-level-filter" onchange="filterLogs()">
+                                <option value="">All Levels</option>
+                                <option value="INFO">INFO</option>
+                                <option value="WARNING">WARNING</option>
+                                <option value="ERROR">ERROR</option>
+                                <option value="SUCCESS">SUCCESS</option>
+                                <option value="DEBUG">DEBUG</option>
+                            </select>
+                            <button class="btn btn-small" onclick="clearLogs()">🗑️ Clear</button>
+                            <button class="btn btn-small" onclick="exportLogs()">📥 Export</button>
+                        </div>
+                    </div>
+                    <div id="logs" class="logs-container">
+                        <!-- Logs will be populated here -->
+                    </div>
+                </section>
+
+                <!-- Recent Jobs -->
+                <section class="section">
+                    <div class="section-header">
+                        <h2>📊 Recent Jobs</h2>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-small" onclick="refreshJobs()">🔄 Refresh</button>
+                            <button class="btn btn-small btn-danger" onclick="clearAllJobs()">🗑️ Clear All</button>
+                        </div>
+                    </div>
+                    <div id="jobs-list" class="jobs-list">
+                        <!-- Jobs will be populated here -->
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/websocket.js"></script>
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

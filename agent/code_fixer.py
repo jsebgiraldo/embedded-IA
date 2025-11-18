@@ -4,6 +4,7 @@ Connects Developer Agent with LLM provider
 """
 
 import json
+import os
 import re
 from typing import Dict, List, Any, Optional, Tuple
 from agent.llm_provider import get_llm, LLMConfig, LLMProvider
@@ -62,6 +63,11 @@ class ESP32CodeFixer:
         self.llm_config = llm_config or LLMConfig()
         self.llm = None
         self._initialize_llm()
+    
+    @property
+    def model(self) -> str:
+        """Get the model name being used"""
+        return self.llm_config.model
     
     def _initialize_llm(self):
         """Initialize LLM connection"""
@@ -319,35 +325,51 @@ class ESP32CodeFixer:
         return validation
 
 
+DEFAULT_MODELS = {
+    LLMProvider.OLLAMA: "qwen2.5-coder:14b",
+    LLMProvider.OPENAI: "gpt-4o-mini",
+    LLMProvider.ANTHROPIC: "claude-3-5-haiku-20241022",
+    LLMProvider.AZURE: "gpt-4o-mini",
+    LLMProvider.DEEPSEEK: "deepseek-coder-v2",
+}
+
+
+def _env_flag(var: str, default: bool) -> bool:
+    value = os.getenv(var)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def create_code_fixer(
-    provider: str = "ollama",
+    provider: Optional[str] = None,
     model: Optional[str] = None
 ) -> ESP32CodeFixer:
-    """
-    Factory function to create code fixer with specific provider
-    
-    Args:
-        provider: "ollama", "openai", "anthropic", or "azure"
-        model: Specific model name (None = use recommended)
-    
-    Returns:
-        ESP32CodeFixer instance
-    """
-    provider_enum = LLMProvider(provider.lower())
-    
-    # Use default model if not specified
-    if model is None:
-        if provider_enum == LLMProvider.OLLAMA:
-            model = "qwen2.5-coder:14b"
-        elif provider_enum == LLMProvider.OPENAI:
-            model = "gpt-4o-mini"
-        elif provider_enum == LLMProvider.ANTHROPIC:
-            model = "claude-3-5-haiku-20241022"
-    
+    """Factory function that builds the LLM config using .env overrides."""
+
+    provider_name = provider or os.getenv("LLM_PROVIDER", LLMProvider.OLLAMA.value)
+    provider_enum = LLMProvider(provider_name.lower())
+
+    # Model selection with env override
+    resolved_model = model or os.getenv("LLM_MODEL") or DEFAULT_MODELS.get(provider_enum, "qwen2.5-coder:14b")
+
+    # Base URL customization (useful for dockerized Ollama or custom gateways)
+    base_url = None
+    if provider_enum == LLMProvider.OLLAMA:
+        base_url = os.getenv("OLLAMA_BASE_URL")
+    elif provider_enum == LLMProvider.DEEPSEEK:
+        base_url = os.getenv("DEEPSEEK_BASE_URL")
+
+    max_tokens_env = os.getenv("LLM_MAX_TOKENS")
+    max_tokens = int(max_tokens_env) if max_tokens_env and max_tokens_env.isdigit() else None
+
     config = LLMConfig(
         provider=provider_enum,
-        model=model,
-        temperature=0.1,  # Low temperature for more deterministic fixes
+        model=resolved_model,
+        temperature=float(os.getenv("LLM_TEMPERATURE", "0.1")),
+        max_tokens=max_tokens,
+        base_url=base_url,
+        fallback_to_local=_env_flag("LLM_FALLBACK_TO_LOCAL", True),
     )
     
     return ESP32CodeFixer(config)

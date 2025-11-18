@@ -1,0 +1,251 @@
+#!/usr/bin/env python3
+"""
+Test Real Workflow - ESP32 Development Cycle
+Simula un ciclo completo de desarrollo con errores reales y su corrección
+"""
+
+import sys
+import asyncio
+import time
+from pathlib import Path
+
+# Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from agent.event_emitter import event_emitter, EventType, emit_log, emit_job_progress, emit_agent_status
+
+
+async def simulate_real_workflow():
+    """Simula un workflow real de desarrollo ESP32"""
+    
+    print("\n" + "="*80)
+    print("🚀 ESP32 REAL WORKFLOW TEST - Ciclo Completo de Desarrollo")
+    print("="*80)
+    print("\n📌 Escenario: Proyecto ESP32 con error de compilación real")
+    print("   - Error: Variable no declarada")
+    print("   - Agentes: Build → Developer → Build → Test")
+    print("   - Tiempo estimado: ~2 minutos")
+    print("\n🌐 Abre el dashboard: http://localhost:8000")
+    print("   Verás los eventos en tiempo real mientras se ejecuta el workflow\n")
+    
+    input("Presiona Enter para iniciar el workflow real... ")
+    
+    # Start event emitter
+    await event_emitter.start()
+    print("\n✅ Event emitter started\n")
+    
+    job_id = 200
+    
+    # ========================================================================
+    # FASE 1: INTENTAR BUILD - FALLA POR ERROR
+    # ========================================================================
+    print("\n" + "="*80)
+    print("FASE 1: BUILD INICIAL - Detectando errores")
+    print("="*80 + "\n")
+    
+    await emit_agent_status("build", "active")
+    await emit_log("INFO", "🔨 Iniciando compilación del proyecto...", "build", job_id)
+    await emit_job_progress(job_id, "BUILD", 0, "Configurando entorno de compilación")
+    await asyncio.sleep(1.5)
+    
+    await emit_job_progress(job_id, "BUILD", 20, "Analizando dependencias")
+    await asyncio.sleep(1)
+    
+    await emit_job_progress(job_id, "BUILD", 40, "Compilando archivos fuente...")
+    await asyncio.sleep(2)
+    
+    # Error encontrado
+    await emit_log("ERROR", "❌ Error de compilación detectado!", "build", job_id)
+    await asyncio.sleep(0.5)
+    
+    error_detail = """
+    main/main.c:45:5: error: 'led_state' undeclared (first use in this function)
+         led_state = !led_state;
+         ^~~~~~~~~
+    main/main.c:45:5: note: each undeclared identifier is reported only once
+    """
+    await emit_log("ERROR", f"Detalles del error:\n{error_detail}", "build", job_id)
+    await emit_job_progress(job_id, "BUILD", 50, "Compilación falló - Error detectado")
+    
+    await emit_agent_status("build", "error")
+    print("❌ Build falló - Error en código fuente")
+    await asyncio.sleep(2)
+    
+    # ========================================================================
+    # FASE 2: ANÁLISIS DEL DESARROLLADOR
+    # ========================================================================
+    print("\n" + "="*80)
+    print("FASE 2: ANÁLISIS - Developer Agent investigando el error")
+    print("="*80 + "\n")
+    
+    await emit_agent_status("build", "idle")
+    await emit_agent_status("developer", "active")
+    
+    await emit_log("INFO", "👨‍💻 Developer Agent: Analizando error de compilación", "developer", job_id)
+    await emit_job_progress(job_id, "ANALYZE", 0, "Leyendo logs de compilación")
+    await asyncio.sleep(1.5)
+    
+    await emit_log("INFO", "🔍 Identificando línea problemática: main.c:45", "developer", job_id)
+    await emit_job_progress(job_id, "ANALYZE", 30, "Buscando contexto del código")
+    await asyncio.sleep(1.5)
+    
+    await emit_log("WARNING", "⚠️  Variable 'led_state' usada pero no declarada", "developer", job_id)
+    await emit_job_progress(job_id, "ANALYZE", 60, "Generando diagnóstico")
+    await asyncio.sleep(1)
+    
+    await emit_log("SUCCESS", "✅ Causa raíz identificada: Falta declaración de variable", "developer", job_id)
+    await emit_job_progress(job_id, "ANALYZE", 100, "Análisis completado")
+    print("✅ Developer: Error analizado - Variable no declarada")
+    await asyncio.sleep(1.5)
+    
+    # ========================================================================
+    # FASE 3: APLICAR FIX AUTOMÁTICO
+    # ========================================================================
+    print("\n" + "="*80)
+    print("FASE 3: FIX - Aplicando corrección automática")
+    print("="*80 + "\n")
+    
+    await emit_log("INFO", "🔧 Generando fix con LLM (qwen3-coder:latest)", "developer", job_id)
+    await emit_job_progress(job_id, "FIX", 0, "Conectando con modelo LLM")
+    await asyncio.sleep(2)
+    
+    await emit_log("INFO", "🤖 LLM: Analizando código y generando solución...", "developer", job_id)
+    await emit_job_progress(job_id, "FIX", 25, "Generando código corregido")
+    await asyncio.sleep(3)
+    
+    fix_suggestion = """
+    // Declaración agregada antes del uso
+    static bool led_state = false;  // Estado del LED (on/off)
+    
+    // Código corregido en línea 45
+    led_state = !led_state;
+    gpio_set_level(LED_PIN, led_state);
+    """
+    
+    await emit_log("SUCCESS", f"✨ Fix generado:\n{fix_suggestion}", "developer", job_id)
+    await emit_job_progress(job_id, "FIX", 60, "Aplicando cambios al código")
+    await asyncio.sleep(1.5)
+    
+    await emit_log("SUCCESS", "💾 Cambios aplicados a main/main.c", "developer", job_id)
+    await emit_job_progress(job_id, "FIX", 90, "Verificando sintaxis")
+    await asyncio.sleep(1)
+    
+    await emit_log("SUCCESS", "✅ Fix aplicado correctamente (Confianza: 98%)", "developer", job_id)
+    await emit_job_progress(job_id, "FIX", 100, "Fix completado")
+    
+    await emit_agent_status("developer", "idle")
+    print("✅ Developer: Fix aplicado exitosamente")
+    await asyncio.sleep(2)
+    
+    # ========================================================================
+    # FASE 4: REBUILD - VERIFICAR FIX
+    # ========================================================================
+    print("\n" + "="*80)
+    print("FASE 4: REBUILD - Verificando que el fix funcionó")
+    print("="*80 + "\n")
+    
+    await emit_agent_status("build", "active")
+    await emit_log("INFO", "🔨 Recompilando proyecto con fix aplicado...", "build", job_id)
+    await emit_job_progress(job_id, "REBUILD", 0, "Limpiando build anterior")
+    await asyncio.sleep(1)
+    
+    await emit_job_progress(job_id, "REBUILD", 25, "Recompilando archivos modificados")
+    await asyncio.sleep(2)
+    
+    await emit_job_progress(job_id, "REBUILD", 50, "Enlazando bibliotecas")
+    await asyncio.sleep(1.5)
+    
+    await emit_job_progress(job_id, "REBUILD", 75, "Generando binario")
+    await asyncio.sleep(1.5)
+    
+    await emit_log("SUCCESS", "✅ Compilación exitosa!", "build", job_id)
+    await emit_log("INFO", "📦 Binario generado: build/esp32_app.bin (245 KB)", "build", job_id)
+    await emit_job_progress(job_id, "REBUILD", 100, "Build completado exitosamente")
+    
+    await emit_agent_status("build", "idle")
+    print("✅ Build: Compilación exitosa después del fix")
+    await asyncio.sleep(2)
+    
+    # ========================================================================
+    # FASE 5: VALIDACIÓN Y TESTING
+    # ========================================================================
+    print("\n" + "="*80)
+    print("FASE 5: VALIDACIÓN - Test Agent verificando el resultado")
+    print("="*80 + "\n")
+    
+    await emit_agent_status("test", "active")
+    await emit_log("INFO", "🧪 Iniciando validación del código corregido", "test", job_id)
+    await emit_job_progress(job_id, "VALIDATE", 0, "Preparando ambiente de test")
+    await asyncio.sleep(1)
+    
+    await emit_log("INFO", "📋 Verificando declaraciones de variables", "test", job_id)
+    await emit_job_progress(job_id, "VALIDATE", 25, "Análisis estático")
+    await asyncio.sleep(1.5)
+    
+    await emit_log("SUCCESS", "✅ Todas las variables están declaradas correctamente", "test", job_id)
+    await emit_job_progress(job_id, "VALIDATE", 50, "Verificando lógica del código")
+    await asyncio.sleep(1)
+    
+    await emit_log("INFO", "🔬 Ejecutando test de sintaxis ESP-IDF", "test", job_id)
+    await emit_job_progress(job_id, "VALIDATE", 75, "Tests de sintaxis")
+    await asyncio.sleep(1.5)
+    
+    await emit_log("SUCCESS", "✅ Todos los tests pasaron exitosamente", "test", job_id)
+    await emit_log("INFO", "📊 Cobertura: Variables declaradas (100%), Sintaxis (100%)", "test", job_id)
+    await emit_job_progress(job_id, "VALIDATE", 100, "Validación completada")
+    
+    await emit_agent_status("test", "idle")
+    print("✅ Test: Validación completada - Código listo para flash")
+    await asyncio.sleep(2)
+    
+    # ========================================================================
+    # RESUMEN FINAL
+    # ========================================================================
+    print("\n" + "="*80)
+    print("✨ WORKFLOW COMPLETADO EXITOSAMENTE")
+    print("="*80 + "\n")
+    
+    await emit_log("SUCCESS", "🎉 Workflow completado exitosamente!", "system", job_id)
+    
+    summary = """
+    📊 RESUMEN DEL WORKFLOW:
+    
+    ✅ Error detectado:     Variable 'led_state' no declarada
+    ✅ Análisis:           Causa raíz identificada en 3 pasos
+    ✅ Fix generado:       Declaración agregada con LLM
+    ✅ Build:              Compilación exitosa (245 KB)
+    ✅ Validación:         Todos los tests pasaron
+    
+    ⏱️  Tiempo total:       ~2 minutos
+    🤖 Agentes usados:     Build, Developer, Test
+    💾 Archivos modificados: main/main.c
+    📈 Tasa de éxito:      100%
+    """
+    
+    await emit_log("INFO", summary, "system", job_id)
+    
+    print(summary)
+    print("\n" + "="*80)
+    print("📊 Revisa el dashboard para ver:")
+    print("   • Timeline completo del workflow")
+    print("   • Logs detallados por agente")
+    print("   • Métricas de tiempo y éxito")
+    print("   • Estado final de todos los agentes")
+    print("="*80 + "\n")
+    
+    # Keep emitter running for a bit to see final events
+    await asyncio.sleep(5)
+    
+    print("⏳ Deteniendo event emitter en 5 segundos...")
+    await asyncio.sleep(5)
+    
+    await event_emitter.stop()
+    print("✅ Event emitter stopped\n")
+
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(simulate_real_workflow())
+    except KeyboardInterrupt:
+        print("\n\n⚠️  Workflow interrumpido por el usuario")
+        print("✅ Event emitter stopped\n")

@@ -8,6 +8,14 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
 from datetime import datetime
+import os
+from pathlib import Path
+
+# Import LLM-powered code fixer
+from .code_fixer import create_code_fixer, ESP32CodeFixer
+
+# Import event emitter for real-time dashboard updates
+from .event_emitter import event_emitter, EventType, emit_log, emit_job_progress, emit_agent_status
 
 
 class TaskStatus(Enum):
@@ -61,16 +69,46 @@ class AgentOrchestrator:
     Handles task dependencies, parallelization, and feedback loops.
     """
     
-    def __init__(self, langchain_tools: List[Any]):
+    def __init__(self, langchain_tools: List[Any], llm_provider: str = "ollama", llm_model: Optional[str] = None):
         """
-        Initialize orchestrator with LangChain tools.
+        Initialize orchestrator with LangChain tools and LLM-powered code fixer.
         
         Args:
             langchain_tools: List of LangChain-wrapped MCP tools
+            llm_provider: LLM provider for code fixing ("ollama", "openai", "anthropic")
+            llm_model: Optional specific model name (defaults per provider)
         """
         self.tools = {tool.name: tool for tool in langchain_tools}
         self.state: Optional[WorkflowState] = None
         self.agent_roles = self._initialize_agents()
+        self.current_job_id: Optional[int] = None  # Track current job for event emission
+        
+        # Initialize LLM-powered code fixer
+        self.code_fixer = create_code_fixer(provider=llm_provider, model=llm_model)
+        print(f"🤖 Code fixer initialized: {llm_provider} ({self.code_fixer.model})")
+    
+    async def _emit_event(self, level: str, message: str, agent_id: Optional[str] = None):
+        """Emit log event to dashboard."""
+        try:
+            await emit_log(level, message, agent_id=agent_id, job_id=self.current_job_id)
+        except Exception as e:
+            print(f"⚠️  Failed to emit event: {e}")
+    
+    async def _emit_progress(self, phase: str, progress: int, message: str, agent_id: Optional[str] = None):
+        """Emit progress event to dashboard."""
+        try:
+            if self.current_job_id:
+                await emit_job_progress(self.current_job_id, phase, progress, message, agent_id=agent_id)
+        except Exception as e:
+            print(f"⚠️  Failed to emit progress: {e}")
+    
+    async def _update_agent_status(self, agent_id: str, status: str):
+        """Update agent status in dashboard."""
+        try:
+            await emit_agent_status(agent_id, status)
+        except Exception as e:
+            print(f"⚠️  Failed to update agent status: {e}")
+
         
     def _initialize_agents(self) -> Dict[AgentRole, Dict[str, Any]]:
         """Define agent roles and their capabilities"""
@@ -136,7 +174,8 @@ class AgentOrchestrator:
         project_path: str,
         target: str = "esp32",
         flash_device: bool = True,
-        run_qemu: bool = True
+        run_qemu: bool = True,
+        job_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Execute complete development workflow with parallelization.
@@ -146,10 +185,18 @@ class AgentOrchestrator:
             target: Target chip (esp32, esp32c6, etc.)
             flash_device: Whether to flash physical device
             run_qemu: Whether to run QEMU simulation
+            job_id: Optional job ID for tracking in dashboard
             
         Returns:
             Workflow results with all task outcomes
         """
+        # Track job for event emission
+        self.current_job_id = job_id
+        
+        # Emit workflow start
+        await self._emit_event("INFO", f"🚀 Starting workflow for project: {project_path}")
+        await self._emit_progress("init", 0, "Initializing workflow")
+        
         # Initialize workflow state
         self.state = WorkflowState(
             project_path=project_path,
@@ -158,6 +205,8 @@ class AgentOrchestrator:
             tasks={},
             artifacts={}
         )
+        
+        await self._emit_event("INFO", f"Target chip: {target}")
         
         # Define workflow phases
         workflow = await self._create_workflow_plan(flash_device, run_qemu)
@@ -439,16 +488,32 @@ class AgentOrchestrator:
     
     async def _builder_compile(self) -> Dict[str, Any]:
         """Compile firmware and cache artifacts"""
+        await self._update_agent_status("build", "active")
+        await self._emit_event("INFO", "🔨 Build agent compiling firmware", agent_id="build")
+        await self._emit_progress("build", 0, "Starting compilation", agent_id="build")
+        
         tool = self.tools["idf_build"]
         result = tool.invoke("")
         
-        # Get artifacts
-        artifacts_tool = self.tools["get_build_artifacts"]
-        artifacts = artifacts_tool.invoke("")
-        self.state.artifacts["build"] = artifacts
+        success = "error" not in result.lower()
+        
+        if success:
+            await self._emit_progress("build", 50, "Compilation successful, getting artifacts", agent_id="build")
+            # Get artifacts
+            artifacts_tool = self.tools["get_build_artifacts"]
+            artifacts = artifacts_tool.invoke("")
+            self.state.artifacts["build"] = artifacts
+            
+            await self._emit_progress("build", 100, "Build completed successfully", agent_id="build")
+            await self._emit_event("SUCCESS", "✅ Build successful", agent_id="build")
+        else:
+            await self._emit_event("ERROR", "❌ Build failed", agent_id="build")
+            artifacts = None
+        
+        await self._update_agent_status("build", "idle")
         
         return {
-            "success": "error" not in result.lower(),
+            "success": success,
             "output": result,
             "artifacts": artifacts
         }
@@ -504,10 +569,15 @@ class AgentOrchestrator:
         - Memory usage
         - Expected behaviors
         """
+        await self._update_agent_status("test", "active")
+        await self._emit_event("INFO", "🔍 Test agent analyzing results", agent_id="test")
+        await self._emit_progress("validate", 0, "Starting validation", agent_id="test")
+        
         issues = []
         
         # Check build
         if "build" in self.state.artifacts:
+            await self._emit_progress("validate", 25, "Checking build artifacts", agent_id="test")
             build_info = self.state.artifacts["build"]
             if "error" in str(build_info).lower():
                 issues.append({
@@ -515,9 +585,11 @@ class AgentOrchestrator:
                     "component": "build",
                     "message": "Build errors detected"
                 })
+                await self._emit_event("WARNING", "⚠️  Build errors detected", agent_id="test")
         
         # Check QEMU output
         if "qemu_output" in self.state.artifacts:
+            await self._emit_progress("validate", 50, "Analyzing QEMU output", agent_id="test")
             output = self.state.artifacts["qemu_output"]
             
             # Check for expected patterns
@@ -527,6 +599,7 @@ class AgentOrchestrator:
                     "component": "application",
                     "message": "Expected 'Hello World' output not found in QEMU"
                 })
+                await self._emit_event("WARNING", "⚠️  Expected output not found", agent_id="test")
             
             # Check for errors/warnings
             if "error" in output.lower() or "abort" in output.lower():
@@ -539,6 +612,15 @@ class AgentOrchestrator:
         # Generate report
         passed = len(issues) == 0
         
+        await self._emit_progress("validate", 100, f"Validation complete: {len(issues)} issues found", agent_id="test")
+        
+        if passed:
+            await self._emit_event("SUCCESS", "✅ All validations passed", agent_id="test")
+        else:
+            await self._emit_event("WARNING", f"⚠️  Found {len(issues)} issues", agent_id="test")
+        
+        await self._update_agent_status("test", "idle")
+        
         return {
             "success": True,
             "passed": passed,
@@ -549,25 +631,105 @@ class AgentOrchestrator:
     
     async def _developer_fix(self, issues: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Fix issues reported by QA.
+        Fix issues reported by QA using LLM-powered code analysis.
         
-        This is a placeholder - in production, this would use an LLM
-        to analyze issues and generate code fixes.
+        Uses ESP32CodeFixer to analyze build errors and generate fixes.
+        Reads buggy code from files, applies fixes, and writes back.
         """
-        print(f"🔧 Developer fixing {len(issues)} issues...")
+        print(f"🔧 Developer fixing {len(issues)} issues with LLM...")
+        await self._update_agent_status("developer", "active")
+        await self._emit_event("INFO", f"🔧 Developer agent fixing {len(issues)} issues", agent_id="developer")
+        await self._emit_progress("fix", 0, f"Starting to fix {len(issues)} issues", agent_id="developer")
         
         fixes_applied = []
-        for issue in issues:
-            print(f"   - {issue['severity']}: {issue['message']}")
-            fixes_applied.append({
-                "issue": issue["message"],
-                "fix": "Applied automatic fix",  # Placeholder
-                "component": issue["component"]
-            })
+        fixes_failed = []
+        
+        for idx, issue in enumerate(issues, 1):
+            progress = int((idx / len(issues)) * 100)
+            print(f"\n   [{idx}/{len(issues)}] {issue['severity']}: {issue['message']}")
+            await self._emit_progress("fix", progress, f"Fixing issue {idx}/{len(issues)}", agent_id="developer")
+            
+            # Extract file path and error details
+            file_path = issue.get("file")
+            component = issue.get("component", "unknown")
+            error_message = issue.get("message", "")
+            
+            if not file_path or not os.path.exists(file_path):
+                print(f"   ⚠️  File not found: {file_path}")
+                fixes_failed.append({
+                    "issue": error_message,
+                    "reason": "File not accessible",
+                    "component": component
+                })
+                continue
+            
+            try:
+                # Read buggy code
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    buggy_code = f.read()
+                
+                print(f"   🔍 Analyzing {Path(file_path).name}...")
+                
+                # Use LLM to fix the code
+                result = self.code_fixer.fix_code(
+                    buggy_code=buggy_code,
+                    error_message=error_message,
+                    filename=Path(file_path).name,
+                    component=component
+                )
+                
+                if result.success and result.fixed_code:
+                    # Write fixed code back to file
+                    with open(file_path, 'w', encoding='utf-8') as f:
+                        f.write(result.fixed_code)
+                    
+                    print(f"   ✅ Fixed! Confidence: {result.confidence}")
+                    print(f"   📝 Changes: {result.changes_made}")
+                    await self._emit_event("SUCCESS", f"✅ Fixed {Path(file_path).name}: {result.changes_made[:100]}", agent_id="developer")
+                    
+                    fixes_applied.append({
+                        "issue": error_message,
+                        "fix": result.changes_made,
+                        "component": component,
+                        "file": file_path,
+                        "confidence": result.confidence,
+                        "diagnosis": result.diagnosis
+                    })
+                else:
+                    print(f"   ❌ Failed: {result.error}")
+                    await self._emit_event("WARNING", f"❌ Failed to fix {Path(file_path).name}: {result.error}", agent_id="developer")
+                    fixes_failed.append({
+                        "issue": error_message,
+                        "reason": result.error or "LLM could not generate fix",
+                        "component": component
+                    })
+                    
+            except Exception as e:
+                print(f"   ❌ Exception: {str(e)}")
+                fixes_failed.append({
+                    "issue": error_message,
+                    "reason": f"Exception: {str(e)}",
+                    "component": component
+                })
+        
+        success = len(fixes_applied) > 0
+        
+        print(f"\n📊 Fix Summary:")
+        print(f"   ✅ Applied: {len(fixes_applied)}")
+        print(f"   ❌ Failed: {len(fixes_failed)}")
+        
+        await self._emit_progress("fix", 100, f"Completed: {len(fixes_applied)} fixes applied, {len(fixes_failed)} failed", agent_id="developer")
+        await self._update_agent_status("developer", "idle")
+        
+        if success:
+            await self._emit_event("SUCCESS", f"🎉 Developer agent completed: {len(fixes_applied)} fixes applied", agent_id="developer")
+        else:
+            await self._emit_event("ERROR", f"❌ Developer agent failed to apply any fixes", agent_id="developer")
         
         return {
-            "success": True,
-            "fixes": fixes_applied
+            "success": success,
+            "fixes": fixes_applied,
+            "failures": fixes_failed
         }
     
     def get_workflow_summary(self) -> str:

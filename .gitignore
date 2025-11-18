@@ -102,3 +102,4 @@ workspace/.test_*.txt
 !.vscode/settings.json
 !.vscode/extensions.json
 !.devcontainer/
+web-server/projects/
