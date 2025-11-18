@@ -103,3 +103,5 @@ workspace/.test_*.txt
 !.vscode/extensions.json
 !.devcontainer/
 web-server/projects/
+node_modules/
+workspace/demo_mcp.sh
